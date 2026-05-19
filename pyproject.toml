@@ -45,3 +45,8 @@ dev = [
 markers = [
     "e2e: real backend end-to-end tests",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: real backend end-to-end tests",
+]
