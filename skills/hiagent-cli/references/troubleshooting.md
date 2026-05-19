@@ -45,10 +45,6 @@ CLI 启动时会尝试将以下候选目录加入 `sys.path`（若存在 `hiagen
 
 因此在 monorepo 中从仓库根目录或 `agent-harness` 目录执行通常都能找到 `hiagent_api`。
 
-## --project 与落盘
-
-如果用户说“我不想写入当前目录”，给出明确的 `--project`，并解释会在 `<project>/.hiagent/` 下创建文件。
-
 ## JSON 输出与脚本化
 
 推荐 `--json`，输出结构为：

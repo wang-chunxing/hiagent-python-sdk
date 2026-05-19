@@ -1,11 +1,11 @@
 ---
 name: "cli-anything-hiagent"
-description: "Command-line interface for HiAgent Python SDK - manage AI agent conversations, workflows, tools, and knowledge retrieval via CLI"
+description: "Command-line interface for HiAgent Python SDK - Observe service (API Token, Trace Spans) via CLI"
 ---
 
 # cli-anything-hiagent
 
-Command-line interface for the HiAgent Python SDK built by Hiagent. This CLI provides programmatic access to HiAgent's AI agent capabilities, including chat conversations, workflow execution, tool management, and knowledge base operations.
+Command-line interface for the HiAgent Python SDK built by Hiagent. This CLI provides programmatic access to HiAgent's Observe service, including API Token management and Trace/Span observability.
 
 ## Installation
 
@@ -27,123 +27,12 @@ uv pip install -e agent-harness
 
 ## Configuration
 
-Set up HiAgent credentials using environment variables or CLI config:
+Set up credentials using environment variables:
 
 ```bash
-# Environment variables
 export VOLC_ACCESSKEY="..."
 export VOLC_SECRETKEY="..."
-export HIAGENT_AGENT_APP_KEY="your-app-key"
-export HIAGENT_WORKSPACE_ID="your-workspace-id"
 export HIAGENT_TOP_ENDPOINT="https://open.volcengineapi.com"
-
-# Or use CLI config command
-cli-anything-hiagent config set --app-key "your-app-key" --workspace-id "your-workspace-id"
-```
-
-View current configuration:
-
-```bash
-cli-anything-hiagent config show
-```
-
-## Session Management
-
-Sessions store conversation/workflow/tool context for reuse:
-
-```bash
-# Create a session
-cli-anything-hiagent session create my-session \
-  --conversation-id conv-123 \
-  --tool-id tool-456 \
-  --dataset-ids ds-001,ds-002
-
-# List all sessions
-cli-anything-hiagent session list
-
-# Show session details
-cli-anything-hiagent session show my-session
-
-# Delete a session
-cli-anything-hiagent session delete my-session
-```
-
-## Chat Commands
-
-Converse with AI agents:
-
-```bash
-# Create a new conversation
-cli-anything-hiagent chat create --app-key "your-app-key" \
-  --user-id "user123" \
-  -v name="my_agent" \
-  -v version="1.0"
-
-# Send a message
-# Non-streaming (waits for complete response)
-cli-anything-hiagent chat send --app-key "your-app-key" \
-  --conversation-id conv-123 \
-  -q "What is the weather like?"
-
-# Streaming (receives response chunks as generated)
-cli-anything-hiagent chat send --app-key "your-app-key" \
-  --conversation-id conv-123 \
-  -q "Tell me a story" \
-  --stream
-```
-
-## Tool Commands
-
-Execute registered tools:
-
-```bash
-# Execute tool with inline JSON input
-cli-anything-hiagent tool execute \
-  --workspace-id ws-123 \
-  --tool-id tool-456 \
-  --input '{"input": "Hello world"}'
-
-# Execute tool with JSON file input
-cli-anything-hiagent tool execute \
-  --workspace-id ws-123 \
-  --tool-id tool-456 \
-  --input @data.json
-```
-
-## Workflow Commands
-
-Run AI workflows:
-
-```bash
-# Run workflow (non-streaming)
-cli-anything-hiagent workflow run \
-  --app-key "your-app-key" \
-  --workspace-id ws-123 \
-  --workflow-id wf-456 \
-  --user-id "user123" \
-  --input '{"question": "What is AI?"}'
-
-# Run workflow (streaming)
-cli-anything-hiagent workflow run \
-  --app-key "your-app-key" \
-  --workspace-id ws-123 \
-  --workflow-id wf-456 \
-  --user-id "user123" \
-  --input '{"question": "What is AI?"}' \
-  --stream
-```
-
-## Knowledge Commands
-
-Retrieve information from knowledge datasets:
-
-```bash
-cli-anything-hiagent knowledge retrieve \
-  --workspace-id ws-123 \
-  --dataset-ids ds-001,ds-002 \
-  -q "Python programming best practices" \
-  --top-k 5 \
-  --score-threshold 0.5
 ```
 
 ## Observe Commands
@@ -185,30 +74,12 @@ cli-anything-hiagent observe trace list \
 - `--sort-by`: Sort field (StartTime, Latency, LatencyFirstResp, TotalTokens)
 - `--sort-order`: Sort order (Asc, Desc)
 
-## File Commands
-
-Upload and download files:
-
-```bash
-# Upload file
-cli-anything-hiagent file upload \
-  --file document.pdf \
-  --expire 15h
-
-# Download file
-cli-anything-hiagent file download \
-  --path "/path/from/upload" \
-  --output document.pdf
-```
-
 ## JSON Output Mode
 
 Use `--json` flag for machine-readable output (essential for AI agents):
 
 ```bash
-cli-anything-hiagent --json chat send --app-key key --conversation-id conv-123 -q "Hello"
-cli-anything-hiagent --json session list
-cli-anything-hiagent --json workflow run --app-key key --workspace-id ws-123 --workflow-id wf-456
+cli-anything-hiagent --json observe trace list --workspace-id ws-123
 ```
 
 JSON output format:
@@ -220,19 +91,6 @@ JSON output format:
 }
 ```
 
-## REPL Mode
-
-Run without arguments to enter interactive REPL:
-
-```bash
-cli-anything-hiagent
-```
-
-REPL provides:
-- Command history
-- Colored output
-- Inline help
-
 ## Return Codes
 
 - `0` - Success
@@ -243,52 +101,13 @@ REPL provides:
 All commands output errors in both human-readable and JSON formats:
 
 ```bash
-# Human-readable error
-$ cli-anything-hiagent tool execute --workspace-id invalid-ws --tool-id tool-456
-✗ Failed to execute tool: Invalid workspace ID
-
 # JSON error
-$ cli-anything-hiagent --json tool execute --workspace-id invalid-ws --tool-id tool-456
+$ cli-anything-hiagent --json observe trace list --workspace-id invalid-ws
 {
   "success": false,
-  "message": "Invalid workspace ID",
+  "message": "...",
   "data": null
 }
-```
-
-## Examples
-
-### Complete chat workflow
-
-```bash
-# 1. Create conversation
-CONV_ID=$(cli-anything-hiagent --json chat create \
-  --app-key "$APP_KEY" \
-  --user-id "user123" \
-  -v name="assistant" | jq -r '.data.conversation.app_conversation_id')
-
-# 2. Send initial message
-cli-anything-hiagent chat send \
-  --app-key "$APP_KEY" \
-  --conversation-id "$CONV_ID" \
-  -q "Hello!"
-
-# 3. Send follow-up message with streaming
-cli-anything-hiagent --json chat send \
-  --app-key "$APP_KEY" \
-  --conversation-id "$CONV_ID" \
-  -q "Tell me more" \
-  --stream
-```
-
-### Batch tool execution
-
-```bash
-# Read tool configurations from file and execute
-cat tools.json | jq -r '.tools[] | "\(.workspace_id) \(.tool_id)"' | \
-while read ws tool; do
-  cli-anything-hiagent tool execute --workspace-id "$ws" --tool-id "$tool"
-done
 ```
 
 ## System Requirements

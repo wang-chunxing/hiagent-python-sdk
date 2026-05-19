@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -39,27 +38,6 @@ def _run(
     )
 
 
-def _run_json(
-    base_cmd: list[str],
-    cwd: Path,
-    project_root: Path,
-    args: list[str],
-) -> dict:
-    p = _run(
-        base_cmd,
-        cwd,
-        ["--json", "--project", str(project_root), *args],
-    )
-    if p.returncode != 0:
-        raise RuntimeError(
-            f"command failed ({p.returncode}): {' '.join([*base_cmd, *args])}\nstdout:\n{p.stdout}\nstderr:\n{p.stderr}"
-        )
-    try:
-        return json.loads(p.stdout)
-    except Exception as e:
-        raise RuntimeError(f"json parse failed: {e}\nraw:\n{p.stdout}") from e
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -81,65 +59,40 @@ def main() -> int:
     p_help = _run(base_cmd, cwd, ["--help"])
     if p_help.returncode != 0:
         raise RuntimeError(f"--help failed\nstdout:\n{p_help.stdout}\nstderr:\n{p_help.stderr}")
-    if "config" not in p_help.stdout or "session" not in p_help.stdout:
-        raise RuntimeError(f"unexpected help output:\n{p_help.stdout}")
+    if "observe" not in p_help.stdout:
+        raise RuntimeError(f"unexpected help output (missing observe):\n{p_help.stdout}")
 
-    with tempfile.TemporaryDirectory(prefix="hiagent-cli-skill-") as td:
-        project_root = Path(td)
+    no_cred_env = {"VOLC_ACCESSKEY": "", "VOLC_SECRETKEY": "", "HOME": str(repo_root / "_no_home_for_smoke")}
 
-        app_key = "test-app-key"
-        workspace_id = "test-workspace-id"
+    p_token = _run(
+        base_cmd,
+        cwd,
+        ["--json", "observe", "token", "create", "--workspace-id", "ws-test", "--custom-app-id", "app-test"],
+        env=no_cred_env,
+    )
+    if p_token.returncode == 0:
+        raise RuntimeError(f"observe token create unexpectedly succeeded without credentials:\n{p_token.stdout}")
+    try:
+        data = json.loads(p_token.stdout)
+    except Exception as e:
+        raise RuntimeError(f"observe token create json parse failed: {e}\nraw:\n{p_token.stdout}") from e
+    if data.get("success") is not False or "Volcengine credentials not found" not in (data.get("message") or ""):
+        raise RuntimeError(f"observe token create unexpected payload: {data}")
 
-        _run_json(
-            base_cmd,
-            cwd,
-            project_root,
-            ["config", "set", "--app-key", app_key, "--workspace-id", workspace_id],
-        )
-
-        cfg_path = project_root / ".hiagent" / "config.json"
-        if not cfg_path.is_file():
-            raise RuntimeError(f"expected config file not found: {cfg_path}")
-        cfg = json.loads(cfg_path.read_text())
-        if cfg.get("app_key") != app_key or cfg.get("workspace_id") != workspace_id:
-            raise RuntimeError(f"unexpected config file content: {cfg}")
-
-        show = _run_json(base_cmd, cwd, project_root, ["config", "show"])
-        if not show.get("success"):
-            raise RuntimeError(f"config show not success: {show}")
-        if not isinstance(show.get("data"), dict):
-            raise RuntimeError(f"config show missing data: {show}")
-        if "effective" not in show["data"] or "project" not in show["data"]:
-            raise RuntimeError(f"config show missing effective/project: {show}")
-
-        name = "smoke-session"
-        create = _run_json(
-            base_cmd,
-            cwd,
-            project_root,
-            ["session", "create", name, "--conversation-id", "conv-123", "--tool-id", "tool-456"],
-        )
-        if not create.get("success"):
-            raise RuntimeError(f"session create not success: {create}")
-
-        listed = _run_json(base_cmd, cwd, project_root, ["session", "list"])
-        if not listed.get("success"):
-            raise RuntimeError(f"session list not success: {listed}")
-        sessions = listed.get("data")
-        if not isinstance(sessions, list) or name not in sessions:
-            raise RuntimeError(f"session list missing {name}: {listed}")
-
-        shown = _run_json(base_cmd, cwd, project_root, ["session", "show", name])
-        if not shown.get("success") or not isinstance(shown.get("data"), dict):
-            raise RuntimeError(f"session show unexpected: {shown}")
-
-        deleted = _run_json(base_cmd, cwd, project_root, ["session", "delete", name])
-        if not deleted.get("success"):
-            raise RuntimeError(f"session delete not success: {deleted}")
-
-        after = _run_json(base_cmd, cwd, project_root, ["session", "list"])
-        if name in (after.get("data") or []):
-            raise RuntimeError(f"session still present after delete: {after}")
+    p_trace = _run(
+        base_cmd,
+        cwd,
+        ["--json", "observe", "trace", "list", "--workspace-id", "ws-test"],
+        env=no_cred_env,
+    )
+    if p_trace.returncode == 0:
+        raise RuntimeError(f"observe trace list unexpectedly succeeded without credentials:\n{p_trace.stdout}")
+    try:
+        data = json.loads(p_trace.stdout)
+    except Exception as e:
+        raise RuntimeError(f"observe trace list json parse failed: {e}\nraw:\n{p_trace.stdout}") from e
+    if data.get("success") is not False or "Volcengine credentials not found" not in (data.get("message") or ""):
+        raise RuntimeError(f"observe trace list unexpected payload: {data}")
 
     sys.stdout.write("OK\n")
     return 0
