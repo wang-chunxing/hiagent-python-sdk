@@ -168,3 +168,4 @@ chainlit.md
 .idea
 license.py
 .DS_Store
+.trae/

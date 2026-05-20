@@ -27,6 +27,8 @@ def ensure_volc_credentials() -> None:
     ak = ak or str(dotenv_data.get("VOLC_ACCESSKEY") or "").strip()
     sk = sk or str(dotenv_data.get("VOLC_SECRETKEY") or "").strip()
     if ak and sk:
+        os.environ["VOLC_ACCESSKEY"] = ak
+        os.environ["VOLC_SECRETKEY"] = sk
         return
 
     home = os.environ.get("HOME")
@@ -39,6 +41,8 @@ def ensure_volc_credentials() -> None:
                 ak = parser.get("default", "access_key_id", fallback="").strip()
                 sk = parser.get("default", "secret_access_key", fallback="").strip()
                 if ak and sk:
+                    os.environ["VOLC_ACCESSKEY"] = ak
+                    os.environ["VOLC_SECRETKEY"] = sk
                     return
 
         cfg_path = Path(home) / ".volc" / "config"
@@ -50,6 +54,8 @@ def ensure_volc_credentials() -> None:
                 ak = str(data.get("ak", "")).strip()
                 sk = str(data.get("sk", "")).strip()
                 if ak and sk:
+                    os.environ["VOLC_ACCESSKEY"] = ak
+                    os.environ["VOLC_SECRETKEY"] = sk
                     return
             except Exception:
                 pass
