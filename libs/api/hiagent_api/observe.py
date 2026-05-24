@@ -151,45 +151,10 @@ class ObserveService(Service):
             self.__request("ListTraceSpans", params)
         )
 
-    def TraceAIProcess(
-        self, params: observe_types.TraceAIProcessRequest
-    ) -> observe_types.AIProcessResponse:
-        """Trace AI 分析
-
-        Args:
-            params (Dict):
-
-                `WorkspaceID (str)`: 必选, 工作空间 ID
-
-                `TraceIDs (List[str])`: 必选, trace ID 列表
-
-                `TenantID (str)`: 可选, 租户 ID
-
-                `IsStream (bool)`: 可选, 是否 Stream 请求, 默认否（当前 SDK 不支持 Stream）
-
-        Returns:
-            Dict:
-
-                `content (str)`: AI 分析结果
-
-                `reasoning_content (str)`: AI 推理内容
-
-                `usage (Dict)`: token 用量
-
-                `latency (int)`: 耗时，单位为毫秒
-
-                `trace_id (str)`: Trace ID
-
-        """
-        if hasattr(params, "model_dump"):
-            params = params.model_dump()
-        if isinstance(params, dict) and params.get("IsStream"):
-            return observe_types.AIProcessResponse.model_validate(
-                self.__stream_request("TraceAIProcess", params)
-            )
-        return observe_types.AIProcessResponse.model_validate(
-            self.__request("TraceAIProcess", params)
-        )
+    def TraceAIProcess(self, params, on_event=None):
+        if bool(params.get("IsStream")):
+            return self.__stream_request("TraceAIProcess", params, on_event=on_event)
+        return self.__request("TraceAIProcess", params)
 
     def GetTraceAIProcessHistory(
         self, params: observe_types.GetTraceAIProcessHistoryRequest
@@ -217,45 +182,10 @@ class ObserveService(Service):
             self.__request("GetTraceAIProcessHistory", params)
         )
 
-    def AlertAIProcess(
-        self, params: observe_types.AlertAIProcessRequest
-    ) -> observe_types.AIProcessResponse:
-        """Alert AI 分析
-
-        Args:
-            params (Dict):
-
-                `WorkspaceID (str)`: 必选, 工作空间 ID
-
-                `RuleID (str)`: 必选, 告警规则 ID
-
-                `TenantID (str)`: 可选, 租户 ID
-
-                `IsStream (bool)`: 可选, 是否 Stream 请求, 默认否（当前 SDK 不支持 Stream）
-
-        Returns:
-            Dict:
-
-                `content (str)`: AI 分析结果
-
-                `reasoning_content (str)`: AI 推理内容
-
-                `usage (Dict)`: token 用量
-
-                `latency (int)`: 耗时，单位为毫秒
-
-                `trace_id (str)`: Trace ID
-
-        """
-        if hasattr(params, "model_dump"):
-            params = params.model_dump()
-        if isinstance(params, dict) and params.get("IsStream"):
-            return observe_types.AIProcessResponse.model_validate(
-                self.__stream_request("AlertAIProcess", params)
-            )
-        return observe_types.AIProcessResponse.model_validate(
-            self.__request("AlertAIProcess", params)
-        )
+    def AlertAIProcess(self, params, on_event=None):
+        if bool(params.get("IsStream")):
+            return self.__stream_request("AlertAIProcess", params, on_event=on_event)
+        return self.__request("AlertAIProcess", params)
 
     def __request(self, action, params):
         res = self.json(action, dict(), json.dumps(params))
@@ -266,7 +196,7 @@ class ObserveService(Service):
             return res_json
         return res_json["Result"]
 
-    def __stream_request(self, action, params):
+    def __stream_request(self, action, params, on_event=None):
         """Send a streaming (SSE) request and aggregate it into the final
         AIProcessResponse-shaped dict produced by the server-side `done` event.
         Falls back to aggregating delta events if `done` is missing.
@@ -307,7 +237,13 @@ class ObserveService(Service):
                     try:
                         payload = json.loads(data_str)
                     except json.JSONDecodeError:
-                        return
+                        payload = data_str
+                if on_event is not None:
+                    try:
+                        on_event(event_name, payload)
+                    except Exception:
+                        # 回调异常不应影响主流程
+                        pass
                 if event_name == "done":
                     if isinstance(payload, dict):
                         final = payload
@@ -342,7 +278,7 @@ class ObserveService(Service):
             if final is not None:
                 return final
             if err_message is not None:
-                return {"err_message": err_message}
+                raise Exception(err_message)
             return {
                 "content": "".join(content_parts),
                 "reasoning_content": "".join(reasoning_parts),

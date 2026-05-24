@@ -190,5 +190,158 @@ def observe_trace_list(
         sys.exit(1)
 
 
+def _make_human_on_event():
+    """Stream printer for human mode.
+
+    Writes reasoning/content deltas to stdout incrementally. Server-side payload
+    fields are `reasoning_content` (for `reasoning` events) and `content`
+    (for `content` events). A section header (🤔 Reasoning / ✨ Content) is
+    printed once per section transition to avoid per-delta prefix noise.
+    """
+    import sys
+
+    state = {"section": None}
+
+    def on_event(name, payload):
+        if name not in ("reasoning", "content"):
+            return  # done / error 由主流程处理
+        if not isinstance(payload, dict):
+            return
+        field = "reasoning_content" if name == "reasoning" else "content"
+        text = payload.get(field, "")
+        if not text:
+            return
+        if state["section"] != name:
+            header = "\n🤔 Reasoning:\n" if name == "reasoning" else "\n✨ Content:\n"
+            sys.stdout.write(header)
+            state["section"] = name
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+    return on_event
+
+
+@observe.command("trace-ai-process")
+@click.option("--workspace-id", required=True, help="Workspace ID")
+@click.option("--trace-id", "trace_ids", required=True, multiple=True,
+              help="Trace ID (repeatable)")
+@click.option("--tenant-id", default=None, help="Optional Tenant ID")
+@click.option("--no-stream", is_flag=True, default=False,
+              help="Disable SSE streaming (default: stream)")
+@click.pass_obj
+def observe_trace_ai_process(
+    ctx: CLIContext,
+    workspace_id: str,
+    trace_ids: tuple,
+    tenant_id,
+    no_stream: bool,
+):
+    """Run AI analysis over one or more trace IDs."""
+    try:
+        from cli_anything.hiagent_sdk.utils.hiagent_backend import ensure_volc_credentials
+
+        ensure_volc_credentials()
+        params = {
+            "WorkspaceID": workspace_id,
+            "TraceIDs": list(trace_ids),
+            "IsStream": not no_stream,
+        }
+        if tenant_id:
+            params["TenantID"] = tenant_id
+
+        on_event = None if ctx.json_mode else _make_human_on_event()
+        resp = ctx.service_manager.get_observe_service().TraceAIProcess(
+            params, on_event=on_event
+        )
+
+        latency = (resp or {}).get("latency")
+        trace_id = (resp or {}).get("trace_id")
+        ctx.exporter.print_result(
+            resp,
+            True,
+            f"TraceAIProcess completed (latency={latency}ms, trace_id={trace_id})",
+        )
+    except Exception as e:
+        ctx.exporter.print_result(None, False, f"Error: {str(e)}")
+        sys.exit(1)
+
+
+@observe.command("trace-ai-history")
+@click.option("--workspace-id", required=True, help="Workspace ID")
+@click.option("--trace-id", required=True, help="Trace ID")
+@click.option("--page-size", type=int, default=10, help="Page size")
+@click.pass_obj
+def observe_trace_ai_history(
+    ctx: CLIContext,
+    workspace_id: str,
+    trace_id: str,
+    page_size: int,
+):
+    """List historical AI analyses for a trace."""
+    try:
+        from cli_anything.hiagent_sdk.utils.hiagent_backend import ensure_volc_credentials
+
+        ensure_volc_credentials()
+        params = {
+            "WorkspaceID": workspace_id,
+            "TraceID": trace_id,
+            "PageSize": page_size,
+        }
+        resp = ctx.service_manager.get_observe_service().GetTraceAIProcessHistory(params)
+        items = [item.model_dump() for item in (resp.Items or [])]
+        ctx.exporter.print_result(
+            {"items": items},
+            True,
+            f"Found {len(items)} AI history records",
+        )
+    except Exception as e:
+        ctx.exporter.print_result(None, False, f"Error: {str(e)}")
+        sys.exit(1)
+
+
+@observe.command("alert-ai-process")
+@click.option("--workspace-id", required=True, help="Workspace ID")
+@click.option("--rule-id", required=True, help="Alert Rule ID")
+@click.option("--tenant-id", default=None, help="Optional Tenant ID")
+@click.option("--no-stream", is_flag=True, default=False,
+              help="Disable SSE streaming (default: stream)")
+@click.pass_obj
+def observe_alert_ai_process(
+    ctx: CLIContext,
+    workspace_id: str,
+    rule_id: str,
+    tenant_id,
+    no_stream: bool,
+):
+    """Run AI analysis over an alert rule."""
+    try:
+        from cli_anything.hiagent_sdk.utils.hiagent_backend import ensure_volc_credentials
+
+        ensure_volc_credentials()
+        params = {
+            "WorkspaceID": workspace_id,
+            "RuleID": rule_id,
+            "IsStream": not no_stream,
+        }
+        if tenant_id:
+            params["TenantID"] = tenant_id
+
+        on_event = None if ctx.json_mode else _make_human_on_event()
+        resp = ctx.service_manager.get_observe_service().AlertAIProcess(
+            params, on_event=on_event
+        )
+
+        latency = (resp or {}).get("latency")
+        trace_id = (resp or {}).get("trace_id")
+        ctx.exporter.print_result(
+            resp,
+            True,
+            f"AlertAIProcess completed (latency={latency}ms, trace_id={trace_id})",
+        )
+    except Exception as e:
+        ctx.exporter.print_result(None, False, f"Error: {str(e)}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

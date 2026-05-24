@@ -94,6 +94,36 @@ def main() -> int:
     if data.get("success") is not False or "Volcengine credentials not found" not in (data.get("message") or ""):
         raise RuntimeError(f"observe trace list unexpected payload: {data}")
 
+    for sub_args in [
+        [
+            "--json", "observe", "trace-ai-process",
+            "--workspace-id", "ws-test", "--trace-id", "t-1",
+        ],
+        [
+            "--json", "observe", "trace-ai-history",
+            "--workspace-id", "ws-test", "--trace-id", "t-1",
+        ],
+        [
+            "--json", "observe", "alert-ai-process",
+            "--workspace-id", "ws-test", "--rule-id", "r-1",
+        ],
+    ]:
+        p = _run(base_cmd, cwd, sub_args, env=no_cred_env)
+        if p.returncode == 0:
+            raise RuntimeError(
+                f"{sub_args} unexpectedly succeeded without credentials:\n{p.stdout}"
+            )
+        try:
+            data = json.loads(p.stdout)
+        except Exception as e:
+            raise RuntimeError(
+                f"{sub_args} json parse failed: {e}\nraw:\n{p.stdout}"
+            ) from e
+        if data.get("success") is not False or "Volcengine credentials not found" not in (data.get("message") or ""):
+            raise RuntimeError(
+                f"{sub_args} unexpected payload: {data}"
+            )
+
     sys.stdout.write("OK\n")
     return 0
 

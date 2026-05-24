@@ -1,6 +1,6 @@
 ---
 name: hiagent-cli
-description: 当用户想使用 HiAgent 观测(observe)能力（API Token、Trace Spans 查询）时，务必使用这个技能给出可直接执行的 cli-anything-hiagent observe 命令与排障步骤。尤其适用于用户提到 agent-harness、cli_anything、--json、workspace-id、custom-app-id、VOLC_ACCESSKEY/VOLC_SECRETKEY、observe token、observe trace，以及希望用命令行(cli-anything-hiagent / python -m cli_anything.hiagent_sdk)。
+description: 当用户想使用 HiAgent 观测(observe)能力（API Token、Trace Spans 查询）时，务必使用这个技能给出可直接执行的 cli-anything-hiagent observe 命令与排障步骤。尤其适用于用户提到 agent-harness、cli_anything、--json、workspace-id、custom-app-id、VOLC_ACCESSKEY/VOLC_SECRETKEY、observe token、observe trace，以及希望用命令行(cli-anything-hiagent / python -m cli_anything.hiagent_sdk)。trace-ai-process / trace-ai-history / alert-ai-process / RuleID / IsStream
 ---
 
 # hiagent-cli
@@ -13,6 +13,12 @@ description: 当用户想使用 HiAgent 观测(observe)能力（API Token、Trac
   - `--json`、`workspace-id`、`custom-app-id`
   - `VOLC_ACCESSKEY`、`VOLC_SECRETKEY`
   - `observe`、`observe token`、`observe trace`
+  - `trace-ai-process`
+  - `trace-ai-history`
+  - `alert-ai-process`
+  - `RuleID`
+  - `IsStream`
+  - `AI 分析`
 
 > 本技能仅覆盖 `cli-anything-hiagent observe ...` 开头的命令；其他子命令不在范围内。
 
@@ -66,6 +72,32 @@ cli-anything-hiagent --json observe trace list \
   --sort-by StartTime \
   --sort-order Desc
 ```
+
+### Observe AI 分析
+
+```bash
+# 对一个或多个 TraceID 触发 AI 分析（默认 SSE 流式）
+cli-anything-hiagent --json observe trace-ai-process \
+  --workspace-id your_workspace_id \
+  --trace-id your_trace_id
+```
+
+```bash
+# 查询某 TraceID 的 AI 分析历史记录
+cli-anything-hiagent --json observe trace-ai-history \
+  --workspace-id your_workspace_id \
+  --trace-id your_trace_id \
+  --page-size 10
+```
+
+```bash
+# 对一条告警规则触发 AI 分析
+cli-anything-hiagent --json observe alert-ai-process \
+  --workspace-id your_workspace_id \
+  --rule-id your_rule_id
+```
+
+详细说明见 references/observe-ai.md。
 
 ## 全局参数
 
